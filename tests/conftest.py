@@ -1,6 +1,4 @@
 import pytest
-from pathlib import Path
-import tempfile, shutil
 
 
 @pytest.fixture
@@ -10,9 +8,9 @@ def tmp_output(tmp_path):
 
 
 @pytest.fixture
-def sample_config():
+def sample_config(tmp_path):
     return {
-        "output_dir": "/tmp/semper-test",
+        "output_dir": str(tmp_path / "semper-test"),
         "mode": "C",
         "virustotal": {"enabled": False, "api_key": "", "upload_files": False},
         "yara_rules_dir": "rules/yara",
