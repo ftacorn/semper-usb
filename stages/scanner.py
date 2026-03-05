@@ -42,6 +42,8 @@ class Scanner(PipelineStage):
 
     def _load_yara_rules(self) -> yara.Rules | None:
         rules_dir = Path(self.config.get("yara_rules_dir", "rules/yara"))
+        if not rules_dir.is_dir():
+            return None
         yar_files = list(rules_dir.glob("*.yar")) + list(rules_dir.glob("*.yara"))
         if not yar_files:
             return None
@@ -141,7 +143,10 @@ class Scanner(PipelineStage):
 
                 stats = file_obj.last_analysis_stats
                 malicious = stats.get("malicious", 0)
-                if malicious >= 3:
+                # Threshold: flag if at least this many engines detect as malicious.
+                # Configurable via config virustotal.min_detections (default: 3).
+                min_detections = self.config.get("virustotal", {}).get("min_detections", 3)
+                if malicious >= min_detections:
                     engines.append("virustotal")
                     sigs.append(f"VT:{malicious}/70")
         except Exception as e:
