@@ -30,6 +30,8 @@ class Sorter(PipelineStage):
                     shutil.copy2(src, dest)
                 elif (out / src.name).exists():
                     shutil.move(str(out / src.name), dest)
+                else:
+                    ctx.errors.append(f"Sort skipped for {f.path}: file not found at source or output staging area")
             except Exception as e:
                 ctx.errors.append(f"Sort failed for {f.path}: {e}")
 
