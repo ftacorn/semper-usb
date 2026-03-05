@@ -4,7 +4,6 @@ import subprocess
 import sys
 import tempfile
 import os
-from pathlib import Path
 from core.pipeline import PipelineContext, PipelineStage
 from core.orchestrator import AbortPipeline
 
@@ -28,6 +27,7 @@ class WriteBlocker(PipelineStage):
             capture_output=True, text=True
         )
         if result.returncode != 0:
+            os.rmdir(mount_point)  # clean up empty temp dir before aborting
             raise AbortPipeline(
                 f"Write-block failed: could not mount {ctx.usb_path} read-only. "
                 f"stderr: {result.stderr}. ABORTING — do not proceed without forensic integrity."
