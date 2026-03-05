@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ClamAV
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y clamav clamav-daemon
+          sudo freshclam --quiet
+          sudo service clamav-daemon start
+          sleep 3  # Wait for daemon socket to be ready
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: pytest tests/ -v -m "not integration"
+
+      - name: Run integration tests
+        run: pytest tests/test_integration.py -v -m integration
+
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run unit tests (no ClamAV on Windows runner)
+        run: pytest tests/ -v -m "not integration" --ignore=tests/test_write_blocker.py
