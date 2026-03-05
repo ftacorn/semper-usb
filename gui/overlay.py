@@ -56,8 +56,11 @@ class ScanOverlay:
         secs = int(elapsed.total_seconds())
         h, m, s = secs // 3600, (secs % 3600) // 60, secs % 60
         self._elapsed_label.config(text=f"Elapsed: {h:02d}:{m:02d}:{s:02d}")
-        if self._root:
-            self._root.after(1000, self._tick)
+        try:
+            if self._root:
+                self._root.after(1000, self._tick)
+        except tk.TclError:
+            pass
 
     def _poll(self):
         try:
@@ -66,8 +69,11 @@ class ScanOverlay:
                 self._handle(event)
         except queue.Empty:
             pass
-        if self._root:
-            self._root.after(100, self._poll)
+        try:
+            if self._root:
+                self._root.after(100, self._poll)
+        except tk.TclError:
+            pass
 
     def _handle(self, event: dict):
         kind = event.get("type")
@@ -103,7 +109,10 @@ class ScanOverlay:
         btn.pack(pady=12)
         output_dir = event.get("output_dir", "")
         tk.Button(btn, text="Open Output Folder", command=lambda: self._open_folder(output_dir)).pack(side="left", padx=8)
-        tk.Button(btn, text="Dismiss", command=self._root.destroy).pack(side="left", padx=8)
+        def _dismiss():
+            self._root.destroy()
+            self._root = None
+        tk.Button(btn, text="Dismiss", command=_dismiss).pack(side="left", padx=8)
 
     def _show_abort(self, event: dict):
         if not self._root:
@@ -112,11 +121,21 @@ class ScanOverlay:
             widget.destroy()
         tk.Label(self._root, text="SCAN ABORTED", font=("Helvetica", 14, "bold"), fg="red").pack(pady=16)
         tk.Label(self._root, text=event.get("reason", "Unknown error"), wraplength=320).pack(padx=16)
-        tk.Button(self._root, text="Dismiss", command=self._root.destroy).pack(pady=12)
+        def _dismiss():
+            self._root.destroy()
+            self._root = None
+        tk.Button(self._root, text="Dismiss", command=_dismiss).pack(pady=12)
 
     def _open_folder(self, path: str):
         if sys.platform == "win32":
             subprocess.Popen(["explorer", path])
+        elif "microsoft" in open("/proc/version").read().lower() if sys.platform.startswith("linux") else False:
+            # WSL: convert to Windows path and open with explorer.exe
+            try:
+                win_path = subprocess.check_output(["wslpath", "-w", path]).decode().strip()
+                subprocess.Popen(["explorer.exe", win_path])
+            except Exception:
+                subprocess.Popen(["xdg-open", path])
         else:
             subprocess.Popen(["xdg-open", path])
 
