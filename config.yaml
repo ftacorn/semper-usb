@@ -1,0 +1,12 @@
+output_dir: ~/semper-usb/output
+mode: C                        # C = standard, D = forensic-grade
+virustotal:
+  enabled: false
+  api_key: ""
+  upload_files: false          # true = full upload, false = hash lookup only
+yara_rules_dir: rules/yara
+analyst_name: ""               # Used in D-mode chain of custody
+clamav:
+  socket: /var/run/clamav/clamd.ctl   # Linux default; Windows uses TCP
+  host: 127.0.0.1
+  port: 3310
