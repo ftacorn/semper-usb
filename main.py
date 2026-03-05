@@ -1,6 +1,5 @@
 """Semper USB — entry point and daemon."""
 from __future__ import annotations
-import sys
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -65,7 +64,12 @@ def run_pipeline(device_info: dict, config: dict) -> None:
     ]
 
     orch = Orchestrator(stages, bus)
-    ctx = orch.run(ctx)
+    try:
+        ctx = orch.run(ctx)
+    except Exception as e:
+        if gui_available and overlay:
+            overlay.push({"type": "aborted", "reason": f"Unexpected pipeline error: {e}"})
+        return
 
     if gui_available and overlay:
         overlay.push({
@@ -98,9 +102,15 @@ def main():
     detector = USBDetector(bus)
     bus.subscribe("usb_inserted", lambda e: on_usb_inserted(e, config))
     print("[Semper USB] Running. Waiting for USB insertion... (Ctrl+C to stop)")
-    detector.start()
     try:
-        detector._thread.join()
+        detector.start()
+    except RuntimeError as e:
+        print(f"[Semper USB] Cannot start detector: {e}")
+        return
+
+    try:
+        if detector._thread:
+            detector._thread.join()
     except KeyboardInterrupt:
         print("\n[Semper USB] Stopped.")
         detector.stop()
