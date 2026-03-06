@@ -103,11 +103,14 @@ class Scanner(PipelineStage):
             matched_engines: list[str] = []
             matched_sigs: list[str] = []
 
-            # ClamAV
+            # ClamAV — use instream() so Python reads the file and streams bytes to
+            # clamd. This avoids requiring clamd (running as clamav user) to have
+            # direct filesystem access to the scanned path.
             if clam:
                 try:
-                    result = clam.scan(path_str)
-                    status, sig = result.get(path_str, ("OK", None))
+                    with open(path_str, "rb") as f:
+                        result = clam.instream(f)
+                    status, sig = result.get("stream", ("OK", None))
                     if status == "FOUND" and sig:
                         matched_engines.append("clamav")
                         matched_sigs.append(sig)

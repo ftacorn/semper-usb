@@ -24,9 +24,7 @@ def test_scanner_flags_clamav_match(tmp_path, sample_config):
         mock_clamd.ClamdUnixSocket.return_value = mock_sock
         mock_clamd.ClamdNetworkSocket.return_value = mock_sock
         mock_sock.ping.return_value = True
-        mock_sock.scan.return_value = {
-            str(f): ("FOUND", "Win.Trojan.Generic-1234")
-        }
+        mock_sock.instream.return_value = {"stream": ("FOUND", "Win.Trojan.Generic-1234")}
         scanner = Scanner(sample_config)
         ctx = scanner.run(ctx)
 
@@ -46,7 +44,7 @@ def test_scanner_clean_file_not_flagged(tmp_path, sample_config):
         mock_clamd.ClamdUnixSocket.return_value = mock_sock
         mock_clamd.ClamdNetworkSocket.return_value = mock_sock
         mock_sock.ping.return_value = True
-        mock_sock.scan.return_value = {str(f): ("OK", None)}
+        mock_sock.instream.return_value = {"stream": ("OK", None)}
         scanner = Scanner(sample_config)
         ctx = scanner.run(ctx)
 
