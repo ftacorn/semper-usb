@@ -18,11 +18,18 @@ jobs:
 
       - name: Install ClamAV
         run: |
+          # ubuntu-latest runners ship with ClamAV pre-installed and freshclam running.
+          # Kill it and delete the log file BEFORE apt-get, otherwise the freshclam
+          # post-install script fails to lock the log and apt exits with code 1.
+          sudo systemctl stop clamav-freshclam 2>/dev/null || true
+          sudo pkill -9 freshclam 2>/dev/null || true
+          sudo rm -f /var/log/clamav/freshclam.log
+          sleep 1
           sudo apt-get update -q
           sudo apt-get install -y clamav clamav-daemon
-          # Kill freshclam entirely — service stop isn't fast enough to release the log lock
-          sudo systemctl stop clamav-freshclam || true
-          sudo pkill freshclam || true
+          # Stop freshclam again — apt-get may have restarted it during post-install
+          sudo systemctl stop clamav-freshclam 2>/dev/null || true
+          sudo pkill freshclam 2>/dev/null || true
           sleep 2
           # Skip freshclam update: the package ships with a database that detects EICAR
           sudo service clamav-daemon start
