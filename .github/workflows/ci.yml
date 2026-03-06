@@ -26,7 +26,7 @@ jobs:
           sudo rm -f /var/log/clamav/freshclam.log
           sleep 1
           sudo apt-get update -q
-          sudo apt-get install -y clamav clamav-daemon
+          sudo apt-get install -y clamav clamav-daemon clamav-data
           # Stop freshclam again — apt-get may have restarted it during post-install
           sudo systemctl stop clamav-freshclam 2>/dev/null || true
           sudo pkill freshclam 2>/dev/null || true
@@ -50,25 +50,25 @@ jobs:
           sleep 2
           sudo systemctl status clamav-daemon --no-pager -l || true
           sudo tail -20 /var/log/clamav/clamd.log 2>/dev/null || true
-          # Wait until the ClamAV daemon socket is actually ready (up to 60s)
-          for i in $(seq 1 60); do
-            if clamdscan --ping 2>/dev/null; then
-              echo "ClamAV daemon is ready (attempt $i)"
-              break
-            fi
-            echo "Waiting for ClamAV daemon... ($i/60)"
-            sleep 1
-          done
-          # Open up the socket so the runner user (and Python) can reach it.
-          # Use a literal space in grep (not \s — invalid in POSIX ERE).
           SOCKET=$(grep "^LocalSocket " /etc/clamav/clamd.conf | awk '{print $2}')
           echo "=== Socket path from config: '$SOCKET' ==="
-          ls -la "$SOCKET" 2>/dev/null || echo "Socket file not found at '$SOCKET'"
-          ls -la "$(dirname "$SOCKET")/" 2>/dev/null || true
+          # Wait for the socket FILE to appear (not clamdscan --ping which has its own path lookup)
+          for i in $(seq 1 60); do
+            if [ -S "$SOCKET" ]; then
+              echo "ClamAV socket appeared at attempt $i"
+              break
+            fi
+            echo "Waiting for socket... ($i/60)"
+            sleep 1
+          done
+          # Show final state whether daemon started or not
+          sudo systemctl status clamav-daemon --no-pager -l || true
+          sudo journalctl -u clamav-daemon -n 30 --no-pager 2>/dev/null || true
+          sudo tail -30 /var/log/clamav/clamd.log 2>/dev/null || true
+          ls -la "$(dirname "$SOCKET")/" || true
+          # Open up the socket so the runner user (and Python) can reach it
           sudo chmod 755 "$(dirname "$SOCKET")"
           sudo chmod 666 "$SOCKET"
-          echo "=== Permissions after chmod ==="
-          ls -la "$SOCKET"
 
       - name: Verify ClamAV detects EICAR
         run: |
