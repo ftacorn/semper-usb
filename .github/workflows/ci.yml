@@ -33,19 +33,31 @@ jobs:
           sleep 2
           # Skip freshclam update: the package ships with a database that detects EICAR
           sudo service clamav-daemon start
-          # Enable TCP socket so the Python clamd client can connect on 127.0.0.1:3310
-          echo "TCPSocket 3310" | sudo tee -a /etc/clamav/clamd.conf
-          echo "TCPAddr 127.0.0.1" | sudo tee -a /etc/clamav/clamd.conf
-          sudo service clamav-daemon restart
-          # Wait until both the UNIX socket and TCP port are ready (up to 60s)
-          for i in $(seq 1 60); do
-            if clamdscan --ping 2>/dev/null && nc -z 127.0.0.1 3310 2>/dev/null; then
+          # Wait until the ClamAV daemon socket is actually ready (up to 30s)
+          for i in $(seq 1 30); do
+            if clamdscan --ping 2>/dev/null; then
               echo "ClamAV daemon is ready (attempt $i)"
               break
             fi
-            echo "Waiting for ClamAV daemon... ($i/60)"
+            echo "Waiting for ClamAV daemon... ($i/30)"
             sleep 1
           done
+          # /var/run/clamav/ is 710 clamav:clamav by default — the runner user can't
+          # stat the socket, so os.path.exists() returns False and the Python clamd
+          # client falls back to TCP (which isn't configured). Open up permissions.
+          sudo chmod 755 /var/run/clamav
+          sudo chmod 666 /var/run/clamav/clamd.ctl
+          # Verify Python can reach the daemon before tests run
+          python3 -c "
+import clamd, sys
+try:
+    cd = clamd.ClamdUnixSocket('/var/run/clamav/clamd.ctl')
+    cd.ping()
+    print('clamd socket OK')
+except Exception as e:
+    print(f'clamd socket FAILED: {e}', file=sys.stderr)
+    sys.exit(1)
+"
 
       - name: Verify ClamAV detects EICAR
         run: |
