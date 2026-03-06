@@ -5,6 +5,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 import subprocess, sys
+from pathlib import Path
 from datetime import datetime
 
 STAGES = ["Write Blocker", "Scanner", "Triage", "Copier", "Sorter", "Packager"]
@@ -129,7 +130,7 @@ class ScanOverlay:
     def _open_folder(self, path: str):
         if sys.platform == "win32":
             subprocess.Popen(["explorer", path])
-        elif "microsoft" in open("/proc/version").read().lower() if sys.platform.startswith("linux") else False:
+        elif sys.platform.startswith("linux") and "microsoft" in Path("/proc/version").read_text().lower():
             # WSL: convert to Windows path and open with explorer.exe
             try:
                 win_path = subprocess.check_output(["wslpath", "-w", path]).decode().strip()
