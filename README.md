@@ -48,6 +48,9 @@ Edit `config.yaml`:
 | `virustotal.api_key` | `""` | Your VT API key |
 | `virustotal.upload_files` | `false` | Upload files (vs. hash-only lookup) |
 | `virustotal.min_detections` | `3` | Minimum VT engine hits to flag |
+| `clamav.socket` | `/var/run/clamav/clamd.ctl` | Unix socket path (Linux default) |
+| `clamav.host` | `127.0.0.1` | ClamAV TCP host (Windows/fallback) |
+| `clamav.port` | `3310` | ClamAV TCP port (Windows/fallback) |
 
 ## Running Tests
 
@@ -95,8 +98,8 @@ Modular pipeline — each stage is independently testable:
 
 ```
 [USB Detector] → [Write Blocker] → [Scanner] → [Triage] → [Copier] → [Sorter] → [Packager]
-                                                         ↑
-                                     GUI Overlay (event subscriber, always-on)
+      ↑_________________↑_________________↑_________↑_________↑_________↑_____________↑
+                              GUI Overlay (event subscriber to all stages)
 ```
 
 ## License
