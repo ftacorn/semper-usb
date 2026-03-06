@@ -24,7 +24,21 @@ jobs:
           sudo systemctl stop clamav-freshclam || true
           sudo freshclam --quiet || true  # Update signatures; non-fatal if mirror rate-limits us
           sudo service clamav-daemon start
-          sleep 5  # Wait for daemon socket to be ready
+          # Wait until the ClamAV daemon socket is actually ready (up to 30s)
+          for i in $(seq 1 30); do
+            if clamdscan --ping 2>/dev/null; then
+              echo "ClamAV daemon is ready (attempt $i)"
+              break
+            fi
+            echo "Waiting for ClamAV daemon... ($i/30)"
+            sleep 1
+          done
+
+      - name: Verify ClamAV detects EICAR
+        run: |
+          echo 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' > /tmp/eicar_test.txt
+          clamdscan --stdout /tmp/eicar_test.txt || true
+          clamdscan --stdout /tmp/eicar_test.txt | grep -q "FOUND" && echo "EICAR detection OK" || echo "WARNING: EICAR not detected — integration test may fail"
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
