@@ -59,8 +59,13 @@ jobs:
             echo "Waiting for ClamAV daemon... ($i/60)"
             sleep 1
           done
-          # Ensure the socket is world-accessible so the runner user (and Python) can reach it
-          sudo chmod 666 /var/run/clamav/clamd.ctl 2>/dev/null || true
+          # Open up the socket so the runner user (and Python) can reach it.
+          # Read the actual socket path from config rather than assuming the filename.
+          SOCKET=$(grep -E "^LocalSocket\s" /etc/clamav/clamd.conf | awk '{print $2}')
+          echo "=== Socket path from config: $SOCKET ==="
+          ls -la "$SOCKET" 2>/dev/null || echo "Socket file not found at $SOCKET"
+          sudo chmod 755 "$(dirname "$SOCKET")" 2>/dev/null || true
+          sudo chmod 666 "$SOCKET" 2>/dev/null || true
 
       - name: Verify ClamAV detects EICAR
         run: |

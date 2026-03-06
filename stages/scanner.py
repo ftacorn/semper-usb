@@ -35,9 +35,24 @@ class Scanner(PipelineStage):
 
     def _build_clamav(self):
         cfg = self.config.get("clamav", {})
-        socket = cfg.get("socket", "/var/run/clamav/clamd.ctl")
-        if os.path.exists(socket):
-            return clamd.ClamdUnixSocket(socket)
+        configured = cfg.get("socket", "/var/run/clamav/clamd.ctl")
+
+        # Try configured path first, then auto-discover from system clamd.conf.
+        # Handles differences in socket filename/path across distros/versions.
+        candidates = [configured]
+        for conf_path in ("/etc/clamav/clamd.conf", "/etc/clamd.conf", "/etc/clamd.d/clamd.conf"):
+            try:
+                for line in Path(conf_path).read_text().splitlines():
+                    if line.startswith("LocalSocket "):
+                        candidates.append(line.split()[1])
+                        break
+            except OSError:
+                pass
+
+        for path in candidates:
+            if os.path.exists(path):
+                return clamd.ClamdUnixSocket(path)
+
         return clamd.ClamdNetworkSocket(cfg.get("host", "127.0.0.1"), cfg.get("port", 3310))
 
     def _load_yara_rules(self) -> yara.Rules | None:
