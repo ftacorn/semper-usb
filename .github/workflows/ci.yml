@@ -60,12 +60,15 @@ jobs:
             sleep 1
           done
           # Open up the socket so the runner user (and Python) can reach it.
-          # Read the actual socket path from config rather than assuming the filename.
-          SOCKET=$(grep -E "^LocalSocket\s" /etc/clamav/clamd.conf | awk '{print $2}')
-          echo "=== Socket path from config: $SOCKET ==="
-          ls -la "$SOCKET" 2>/dev/null || echo "Socket file not found at $SOCKET"
-          sudo chmod 755 "$(dirname "$SOCKET")" 2>/dev/null || true
-          sudo chmod 666 "$SOCKET" 2>/dev/null || true
+          # Use a literal space in grep (not \s — invalid in POSIX ERE).
+          SOCKET=$(grep "^LocalSocket " /etc/clamav/clamd.conf | awk '{print $2}')
+          echo "=== Socket path from config: '$SOCKET' ==="
+          ls -la "$SOCKET" 2>/dev/null || echo "Socket file not found at '$SOCKET'"
+          ls -la "$(dirname "$SOCKET")/" 2>/dev/null || true
+          sudo chmod 755 "$(dirname "$SOCKET")"
+          sudo chmod 666 "$SOCKET"
+          echo "=== Permissions after chmod ==="
+          ls -la "$SOCKET"
 
       - name: Verify ClamAV detects EICAR
         run: |
@@ -75,6 +78,19 @@ jobs:
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
+
+      - name: Verify ClamAV Python connectivity
+        run: |
+          python3 - <<'EOF'
+          import os, clamd
+          socket = "/var/run/clamav/clamd.ctl"
+          print(f"os.path.exists('{socket}'): {os.path.exists(socket)}")
+          import subprocess
+          print(subprocess.check_output(["ls", "-la", "/var/run/clamav/"]).decode())
+          cd = clamd.ClamdUnixSocket(socket)
+          cd.ping()
+          print("clamd ping via Python: OK")
+          EOF
 
       - name: Run unit tests
         run: pytest tests/ -v -m "not integration"
