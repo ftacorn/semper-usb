@@ -20,9 +20,11 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y clamav clamav-daemon
-          sudo freshclam --quiet
+          # Stop the freshclam service before running manually — it holds the log file lock
+          sudo systemctl stop clamav-freshclam || true
+          sudo freshclam --quiet || true  # Update signatures; non-fatal if mirror rate-limits us
           sudo service clamav-daemon start
-          sleep 3  # Wait for daemon socket to be ready
+          sleep 5  # Wait for daemon socket to be ready
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
