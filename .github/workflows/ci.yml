@@ -31,12 +31,25 @@ jobs:
           sudo systemctl stop clamav-freshclam 2>/dev/null || true
           sudo pkill freshclam 2>/dev/null || true
           sleep 2
-          # systemd-tmpfiles does not run on Actions runners, so clamd has no socket
-          # directory to write into and exits silently. Create it explicitly.
+          # Remove the 'Example' placeholder line — on some Ubuntu images this line
+          # is left in clamd.conf and silently prevents the daemon from starting.
+          sudo sed -i '/^Example$/d' /etc/clamav/clamd.conf
+          # Show key config values for diagnostics
+          echo "=== clamd.conf (key lines) ==="
+          grep -E "^(LocalSocket|DatabaseDirectory|User)" /etc/clamav/clamd.conf || true
+          # Confirm the database directory has actual .cvd/.cld files
+          DB_DIR=$(grep -E "^DatabaseDirectory" /etc/clamav/clamd.conf | awk '{print $2}')
+          echo "=== Database dir: $DB_DIR ==="
+          ls -lh "$DB_DIR" 2>/dev/null || echo "(empty or missing)"
+          # Create socket directory (systemd-tmpfiles doesn't run on Actions runners)
           sudo mkdir -p /var/run/clamav
           sudo chown clamav:clamav /var/run/clamav
           sudo chmod 755 /var/run/clamav
-          sudo service clamav-daemon start
+          sudo service clamav-daemon start || true
+          # Show daemon status immediately after start attempt
+          sleep 2
+          sudo systemctl status clamav-daemon --no-pager -l || true
+          sudo tail -20 /var/log/clamav/clamd.log 2>/dev/null || true
           # Wait until the ClamAV daemon socket is actually ready (up to 60s)
           for i in $(seq 1 60); do
             if clamdscan --ping 2>/dev/null; then
@@ -47,7 +60,7 @@ jobs:
             sleep 1
           done
           # Ensure the socket is world-accessible so the runner user (and Python) can reach it
-          sudo chmod 666 /var/run/clamav/clamd.ctl
+          sudo chmod 666 /var/run/clamav/clamd.ctl 2>/dev/null || true
 
       - name: Verify ClamAV detects EICAR
         run: |
