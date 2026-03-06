@@ -31,24 +31,23 @@ jobs:
           sudo systemctl stop clamav-freshclam 2>/dev/null || true
           sudo pkill freshclam 2>/dev/null || true
           sleep 2
-          # Skip freshclam update: the package ships with a database that detects EICAR
+          # systemd-tmpfiles does not run on Actions runners, so clamd has no socket
+          # directory to write into and exits silently. Create it explicitly.
+          sudo mkdir -p /var/run/clamav
+          sudo chown clamav:clamav /var/run/clamav
+          sudo chmod 755 /var/run/clamav
           sudo service clamav-daemon start
-          # Wait until the ClamAV daemon socket is actually ready (up to 30s)
-          for i in $(seq 1 30); do
+          # Wait until the ClamAV daemon socket is actually ready (up to 60s)
+          for i in $(seq 1 60); do
             if clamdscan --ping 2>/dev/null; then
               echo "ClamAV daemon is ready (attempt $i)"
               break
             fi
-            echo "Waiting for ClamAV daemon... ($i/30)"
+            echo "Waiting for ClamAV daemon... ($i/60)"
             sleep 1
           done
-          # /var/run/clamav/ is 710 clamav:clamav by default — the runner user can't
-          # stat the socket, so os.path.exists() returns False and the Python clamd
-          # client falls back to TCP (which isn't configured). Open up permissions.
-          sudo chmod 755 /var/run/clamav
+          # Ensure the socket is world-accessible so the runner user (and Python) can reach it
           sudo chmod 666 /var/run/clamav/clamd.ctl
-          # Verify Python can reach the daemon before tests run
-          python3 -c "import clamd; clamd.ClamdUnixSocket('/var/run/clamav/clamd.ctl').ping(); print('clamd socket OK')"
 
       - name: Verify ClamAV detects EICAR
         run: |
