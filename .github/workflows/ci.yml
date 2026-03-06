@@ -31,6 +31,11 @@ jobs:
           sudo systemctl stop clamav-freshclam 2>/dev/null || true
           sudo pkill freshclam 2>/dev/null || true
           sleep 2
+          # Download the daily database — clamav-daemon has a systemd ConditionPathExists
+          # check for daily.{cvd,cld} and will be silently skipped without it.
+          # clamav-data only ships main.cvd + bytecode.cvd, not daily.cvd.
+          # All freshclam processes are dead at this point so no log-lock conflict.
+          sudo freshclam 2>&1 | tail -5
           # Remove the 'Example' placeholder line — on some Ubuntu images this line
           # is left in clamd.conf and silently prevents the daemon from starting.
           sudo sed -i '/^Example$/d' /etc/clamav/clamd.conf
