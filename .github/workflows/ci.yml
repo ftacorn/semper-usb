@@ -48,16 +48,7 @@ jobs:
           sudo chmod 755 /var/run/clamav
           sudo chmod 666 /var/run/clamav/clamd.ctl
           # Verify Python can reach the daemon before tests run
-          python3 -c "
-import clamd, sys
-try:
-    cd = clamd.ClamdUnixSocket('/var/run/clamav/clamd.ctl')
-    cd.ping()
-    print('clamd socket OK')
-except Exception as e:
-    print(f'clamd socket FAILED: {e}', file=sys.stderr)
-    sys.exit(1)
-"
+          python3 -c "import clamd; clamd.ClamdUnixSocket('/var/run/clamav/clamd.ctl').ping(); print('clamd socket OK')"
 
       - name: Verify ClamAV detects EICAR
         run: |
