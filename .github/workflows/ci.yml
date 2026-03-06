@@ -20,9 +20,11 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y clamav clamav-daemon
-          # Stop the freshclam service before running manually — it holds the log file lock
+          # Kill freshclam entirely — service stop isn't fast enough to release the log lock
           sudo systemctl stop clamav-freshclam || true
-          sudo freshclam --quiet || true  # Update signatures; non-fatal if mirror rate-limits us
+          sudo pkill freshclam || true
+          sleep 2
+          # Skip freshclam update: the package ships with a database that detects EICAR
           sudo service clamav-daemon start
           # Wait until the ClamAV daemon socket is actually ready (up to 30s)
           for i in $(seq 1 30); do
